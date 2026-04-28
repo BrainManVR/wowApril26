@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wall of Connections</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        /* 3D Flip Animation Logic */
+        .card-container {
+            perspective: 1000px;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+
+        .card-container.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            /* Border requirement: width of one 'a' */
+            padding: 1ch; 
+            border: 2px solid transparent;
+        }
+
+        .card-front {
+            background-color: white;
+            color: #059669; /* Green font */
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            color: white;
+        }
+
+        /* Category Colors */
+        .bg-yellow-conn { background-color: #facc15; border-color: #eab308; }
+        .bg-purple-conn { background-color: #a855f7; border-color: #9333ea; }
+        .bg-cyan-conn { background-color: #06b6d4; border-color: #0891b2; }
+        .bg-black-conn { background-color: #18181b; border-color: #000000; }
+
+        /* Text constraints */
+        .card-word {
+            font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            word-break: keep-all;
+            white-space: nowrap;
+        }
+
+        .category-label {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 0.5rem;
+            opacity: 0.9;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        @media (max-width: 400px) {
+            .grid-layout { gap: 0.5rem; }
+            .category-label { font-size: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-2">Wall of Connections</h1>
+        <p class="text-lg text-gray-600">Can you work out which 4 words belong together?</p>
+    </div>
+
+    <div id="game-grid" class="grid-layout">
+        <!-- Cards will be injected here -->
+    </div>
+
+    <div class="mt-8 flex gap-4">
+        <button onclick="resetGame()" class="px-6 py-2 bg-gray-800 text-white rounded-full font-semibold hover:bg-gray-700 transition shadow-lg">
+            Shuffle Board
+        </button>
+    </div>
+
+    <script>
+        const categories = [
+            {
+                name: "Prompt Frameworks",
+                color: "bg-yellow-conn",
+                items: ["GCES", "ROSES", "APE", "CREATE"]
+            },
+            {
+                name: "LLM Models",
+                color: "bg-purple-conn",
+                items: ["GPT", "Claude", "Llama", "Gemini"]
+            },
+            {
+                name: "ML Algorithms",
+                color: "bg-cyan-conn",
+                items: ["Supervised", "Unsupervised", "Reinforcement", "Deep Learning"]
+            },
+            {
+                name: "Claude Models",
+                color: "bg-black-conn",
+                items: ["Opus", "Sonnet", "Haiku", "Mythos"]
+            }
+        ];
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function getDynamicFontSize(word) {
+            // Adjust base font size based on word length to prevent overflow
+            const len = word.length;
+            if (len <= 5) return '1.5rem';
+            if (len <= 8) return '1.2rem';
+            if (len <= 11) return '0.9rem';
+            return '0.75rem';
+        }
+
+        function createCard(item, category) {
+            const container = document.createElement('div');
+            container.className = 'card-container';
+            
+            const fontSize = getDynamicFontSize(item);
+
+            container.innerHTML = `
+                <div class="card-inner" onclick="this.parentElement.classList.toggle('flipped')">
+                    <div class="card-front">
+                        <span class="card-word" style="font-size: ${fontSize}">${item}</span>
+                    </div>
+                    <div class="card-back ${category.color}">
+                        <span class="card-word" style="font-size: ${fontSize}">${item}</span>
+                        <span class="category-label">${category.name}</span>
+                    </div>
+                </div>
+            `;
+            return container;
+        }
+
+        function renderGrid() {
+            const grid = document.getElementById('game-grid');
+            grid.innerHTML = '';
+            
+            let allItems = [];
+            categories.forEach(cat => {
+                cat.items.forEach(item => {
+                    allItems.push({ text: item, category: cat });
+                });
+            });
+
+            shuffleArray(allItems);
+
+            allItems.forEach(obj => {
+                grid.appendChild(createCard(obj.text, obj.category));
+            });
+        }
+
+        function resetGame() {
+            // Quick visual feedback before re-rendering
+            const cards = document.querySelectorAll('.card-container');
+            cards.forEach(c => c.classList.remove('flipped'));
+            setTimeout(renderGrid, 300);
+        }
+
+        window.onload = renderGrid;
+    </script>
+</body>
+</html>
